@@ -1,0 +1,84 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+
+use App\Http\Controllers\HeroImageController;
+use App\Http\Controllers\HeroButtonController;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\AnnualEventController;
+use App\Http\Controllers\AwardCategoryController;
+use App\Http\Controllers\AwardSettingController;
+use App\Http\Controllers\NewsItemController;
+use App\Http\Controllers\BoardController;
+use App\Http\Controllers\BapPublicationController;
+use App\Http\Controllers\BapSettingController;
+use App\Http\Controllers\BaeDocumentController;
+use App\Http\Controllers\BaeMemberController;
+use App\Http\Controllers\BaeSettingController;
+use App\Http\Controllers\BomItemController;
+use App\Http\Controllers\BomSettingController;
+use App\Http\Controllers\FaqController;
+use App\Http\Controllers\TickerController;
+use App\Http\Controllers\CouncilMemberController;
+use App\Http\Controllers\BoardMemberController;
+use App\Http\Controllers\ContactEntryController;
+use App\Http\Controllers\AdminAuthController;
+use App\Http\Controllers\AdminUserController;
+
+Route::middleware('auth:api')->get('/user', function (Request $request) {
+    return $request->user();
+});
+
+Route::post('admin/login', [AdminAuthController::class, 'login']);
+Route::post('admin/logout', [AdminAuthController::class, 'logout'])->middleware('auth:api');
+
+Route::apiResource('hero-images', HeroImageController::class)->only(['index', 'show']);
+Route::apiResource('hero-buttons', HeroButtonController::class)->only(['index', 'show']);
+Route::apiResource('events', EventController::class)->only(['index', 'show']);
+Route::apiResource('annual-events', AnnualEventController::class)->only(['index', 'show']);
+Route::apiResource('award-categories', AwardCategoryController::class)->only(['index', 'show']);
+Route::get('award-settings', [AwardSettingController::class, 'show']);
+Route::apiResource('news-items', NewsItemController::class)->only(['index', 'show']);
+Route::apiResource('boards', BoardController::class)->only(['index', 'show']);
+Route::get('bap-settings', [BapSettingController::class, 'show']);
+Route::apiResource('bap-publications', BapPublicationController::class)->only(['index', 'show']);
+Route::apiResource('bae-documents', BaeDocumentController::class)->only(['index', 'show']);
+Route::apiResource('bae-members', BaeMemberController::class)->only(['index', 'show']);
+Route::get('bae-settings', [BaeSettingController::class, 'show']);
+Route::get('bom-settings', [BomSettingController::class, 'show']);
+Route::apiResource('bom-items', BomItemController::class)->only(['index', 'show']);
+Route::apiResource('faqs', FaqController::class)->only(['index', 'show']);
+Route::apiResource('council-members', CouncilMemberController::class)->only(['index', 'show']);
+Route::apiResource('board-members', BoardMemberController::class)->only(['index', 'show']);
+Route::apiResource('contact-entries', ContactEntryController::class)->only(['index', 'show']);
+Route::apiResource('tickers', TickerController::class)->only(['index', 'show']);
+
+Route::middleware('auth:api')->group(function () {
+    Route::get('admin/users', [AdminUserController::class, 'index']);
+    Route::put('admin/users/{user}', [AdminUserController::class, 'update']);
+
+    Route::apiResource('hero-images', HeroImageController::class)->except(['index', 'show']);
+    Route::apiResource('hero-buttons', HeroButtonController::class)->except(['index', 'show']);
+    Route::apiResource('events', EventController::class)->except(['index', 'show']);
+    Route::apiResource('annual-events', AnnualEventController::class)->except(['index', 'show']);
+    Route::apiResource('award-categories', AwardCategoryController::class)->except(['index', 'show']);
+    Route::put('award-settings', [AwardSettingController::class, 'update']);
+    Route::apiResource('news-items', NewsItemController::class)->except(['index', 'show']);
+    Route::apiResource('boards', BoardController::class)->except(['index', 'show']);
+    Route::put('bap-settings', [BapSettingController::class, 'update']);
+    Route::apiResource('bap-publications', BapPublicationController::class)->except(['index', 'show']);
+    Route::apiResource('bae-documents', BaeDocumentController::class)->except(['index', 'show']);
+    Route::post('bae-members/import', [BaeMemberController::class, 'import']);
+    Route::put('bae-members/bulk-update', [BaeMemberController::class, 'bulkUpdate']);
+    Route::apiResource('bae-members', BaeMemberController::class)->except(['index', 'show']);
+    Route::put('bae-settings', [BaeSettingController::class, 'update']);
+    Route::put('bom-settings', [BomSettingController::class, 'update']);
+    Route::apiResource('bom-items', BomItemController::class)->except(['index', 'show']);
+    Route::apiResource('faqs', FaqController::class)->except(['index', 'show']);
+    Route::apiResource('council-members', CouncilMemberController::class)->except(['index', 'show']);
+    Route::apiResource('board-members', BoardMemberController::class)->except(['index', 'show']);
+    Route::apiResource('contact-entries', ContactEntryController::class)->except(['index', 'show']);
+    Route::apiResource('tickers', TickerController::class)->except(['index', 'show']);
+});
+
