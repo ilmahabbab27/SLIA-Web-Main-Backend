@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">SLIA events and updates</title>
+  <desc id="desc">Auditorium and exhibition space for architecture events.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#26383d"/>
+      <stop offset=".55" stop-color="#6f7e7b"/>
+      <stop offset="1" stop-color="#d8c39e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <path d="M0 740h1920v340H0z" fill="#e9e2d2"/>
+  <path d="M210 280h1500v560H210z" fill="#2f444a"/>
+  <path d="M310 360h1300v390H310z" fill="#d6c7aa"/>
+  <path d="M385 430h360v250H385zm455 0h360v250H840zm455 0h240v250h-240z" fill="#435e63"/>
+  <path d="M210 280h1500v86H210zm0 470h1500v90H210z" fill="#1f2c31"/>
+  <g fill="#f3efe5">
+    <circle cx="520" cy="820" r="30"/>
+    <circle cx="720" cy="820" r="30"/>
+    <circle cx="920" cy="820" r="30"/>
+    <circle cx="1120" cy="820" r="30"/>
+    <circle cx="1320" cy="820" r="30"/>
+  </g>
+</svg>

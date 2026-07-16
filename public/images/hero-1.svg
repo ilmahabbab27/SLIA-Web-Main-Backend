@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Sri Lanka Institute of Architects</title>
+  <desc id="desc">Architectural facade with warm daylight.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#d7e8f0"/>
+      <stop offset="0.55" stop-color="#f5efe4"/>
+      <stop offset="1" stop-color="#d9c2a1"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" x2="1">
+      <stop offset="0" stop-color="#46626d"/>
+      <stop offset="1" stop-color="#8ca6a8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <path d="M0 830h1920v250H0z" fill="#283539"/>
+  <path d="M210 785h980L1440 240h185L1390 785h320v95H210z" fill="#efe6d6"/>
+  <path d="M410 720h820l170-365h96l-160 365h230v60H410z" fill="#c8bba7"/>
+  <path d="M500 710h650l126-280h72l-124 280h190v40H500z" fill="url(#glass)" opacity=".92"/>
+  <g fill="#f7f3ea">
+    <rect x="570" y="465" width="64" height="245"/>
+    <rect x="710" y="465" width="64" height="245"/>
+    <rect x="850" y="465" width="64" height="245"/>
+    <rect x="990" y="465" width="64" height="245"/>
+  </g>
+  <path d="M0 900c285-78 548-84 802-34 318 62 620 58 1118-60v274H0z" fill="#1f2a2e" opacity=".65"/>
+</svg>

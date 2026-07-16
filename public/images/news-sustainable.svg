@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" role="img" aria-labelledby="title desc">
+  <title id="title">Sustainable architecture initiative</title>
+  <desc id="desc">Green building concept with leaf and facade.</desc>
+  <rect width="600" height="400" fill="#dfecea"/>
+  <path d="M100 315h400V135L300 65 100 135z" fill="#31464d"/>
+  <path d="M155 290V155h290v135" fill="#f4eedf"/>
+  <path d="M195 190h70v100h-70zm95 0h70v100h-70z" fill="#789096"/>
+  <path d="M405 95c42 58 22 114-45 132-18-66 6-110 45-132z" fill="#5f8f68"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" role="img" aria-labelledby="title desc">
+  <title id="title">Architecture standards update</title>
+  <desc id="desc">Architecture plans and standard documents.</desc>
+  <rect width="600" height="400" fill="#f1eadc"/>
+  <path d="M90 70h310v260H90z" fill="#fffaf0"/>
+  <path d="M130 120h220M130 160h180M130 200h220M130 240h140" stroke="#31464d" stroke-width="12" stroke-linecap="round"/>
+  <path d="M420 105h90v210h-90z" fill="#789096"/>
+  <path d="M445 140h40v140h-40z" fill="#d8c39e"/>
+</svg>

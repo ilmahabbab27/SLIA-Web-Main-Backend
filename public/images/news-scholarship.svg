@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" role="img" aria-labelledby="title desc">
+  <title id="title">Student scholarship program</title>
+  <desc id="desc">Graduation cap over architectural drawing.</desc>
+  <rect width="600" height="400" fill="#efe7d8"/>
+  <path d="M95 110h410v210H95z" fill="#fffaf0"/>
+  <path d="M140 260h320M140 220h220M140 180h280" stroke="#789096" stroke-width="10" stroke-linecap="round"/>
+  <path d="M300 75 150 145l150 70 150-70z" fill="#31464d"/>
+  <path d="M220 180v58c48 30 112 30 160 0v-58l-80 37z" fill="#b76e4b"/>
+</svg>

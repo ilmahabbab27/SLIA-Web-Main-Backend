@@ -11,8 +11,15 @@ class BaeMember extends Model
 
     protected $fillable = [
         'member_type',
+        'current_membership_type',
         'serial_no',
         'name',
+        'name_with_initials',
+        'gender',
+        'picture',
+        'nic',
+        'nationality',
+        'date_of_birth',
         'academic_qualifications',
         'membership_year',
         'membership_number',
@@ -23,15 +30,23 @@ class BaeMember extends Model
         'associate_membership_number',
         'associate_membership_year',
         'address',
+        'office_address',
+        'office_phone',
+        'office_email',
+        'residence_address',
+        'residence_phone',
+        'residence_email',
         'contact_no',
         'email',
         'remarks',
         'is_active',
+        'current_membership_status',
         'sort_order',
     ];
 
     protected $casts = [
         'serial_no' => 'integer',
+        'date_of_birth' => 'date:Y-m-d',
         'is_active' => 'boolean',
         'sort_order' => 'integer',
     ];

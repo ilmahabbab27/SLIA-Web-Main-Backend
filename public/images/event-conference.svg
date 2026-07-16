@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" role="img" aria-labelledby="title desc">
+  <title id="title">Annual conference</title>
+  <desc id="desc">Conference hall with presentation screen.</desc>
+  <rect width="600" height="400" fill="#efe7d8"/>
+  <path d="M60 70h480v250H60z" fill="#26383d"/>
+  <path d="M110 110h280v150H110z" fill="#d8c39e"/>
+  <path d="M430 120h55v140h-55zm75 0h35v140h-35z" fill="#789096"/>
+  <path d="M0 320h600v80H0z" fill="#c9b79a"/>
+  <g fill="#2f444a">
+    <circle cx="140" cy="345" r="15"/>
+    <circle cx="220" cy="345" r="15"/>
+    <circle cx="300" cy="345" r="15"/>
+    <circle cx="380" cy="345" r="15"/>
+    <circle cx="460" cy="345" r="15"/>
+  </g>
+</svg>

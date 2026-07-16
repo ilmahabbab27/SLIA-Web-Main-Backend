@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" role="img" aria-labelledby="title desc">
+  <title id="title">Member networking</title>
+  <desc id="desc">People gathering in a professional networking space.</desc>
+  <rect width="600" height="400" fill="#ece3d1"/>
+  <path d="M0 260h600v140H0z" fill="#33464c"/>
+  <path d="M60 80h480v200H60z" fill="#789096"/>
+  <path d="M105 120h110v110H105zm145 0h110v110H250zm145 0h100v110H395z" fill="#f5efe4"/>
+  <g fill="#26383d">
+    <circle cx="150" cy="285" r="24"/>
+    <circle cx="255" cy="285" r="24"/>
+    <circle cx="360" cy="285" r="24"/>
+    <circle cx="465" cy="285" r="24"/>
+  </g>
+  <g fill="#d8c39e">
+    <path d="M105 350c12-42 78-42 90 0z"/>
+    <path d="M210 350c12-42 78-42 90 0z"/>
+    <path d="M315 350c12-42 78-42 90 0z"/>
+    <path d="M420 350c12-42 78-42 90 0z"/>
+  </g>
+</svg>

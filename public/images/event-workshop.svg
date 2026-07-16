@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" role="img" aria-labelledby="title desc">
+  <title id="title">Design workshop</title>
+  <desc id="desc">Design table with plans and tools.</desc>
+  <rect width="600" height="400" fill="#dce8e8"/>
+  <path d="M80 70h440v260H80z" fill="#f7f1e5"/>
+  <path d="M125 110h185v125H125z" fill="#cbb892"/>
+  <path d="M340 110h120v170H340z" fill="#405b62"/>
+  <path d="M145 255h140v22H145zm0 38h260v18H145z" fill="#789096"/>
+  <circle cx="500" cy="310" r="34" fill="#b76e4b"/>
+  <path d="M103 73l414 254" stroke="#26383d" stroke-width="8" opacity=".25"/>
+</svg>

@@ -23,8 +23,15 @@ use App\Http\Controllers\TickerController;
 use App\Http\Controllers\CouncilMemberController;
 use App\Http\Controllers\BoardMemberController;
 use App\Http\Controllers\ContactEntryController;
+use App\Http\Controllers\PublicCalendarEventController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\PabSettingController;
+use App\Http\Controllers\PabEventController;
+use App\Http\Controllers\PabApplicationController;
+use App\Http\Controllers\PabPublicationController;
+use App\Http\Controllers\SliaMemberController;
+use App\Http\Controllers\ComplaintController;
 
 Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
@@ -48,11 +55,26 @@ Route::apiResource('bae-members', BaeMemberController::class)->only(['index', 's
 Route::get('bae-settings', [BaeSettingController::class, 'show']);
 Route::get('bom-settings', [BomSettingController::class, 'show']);
 Route::apiResource('bom-items', BomItemController::class)->only(['index', 'show']);
+Route::get('pab-settings', [PabSettingController::class, 'show']);
+Route::apiResource('pab-events', PabEventController::class)->only(['index', 'show']);
+Route::apiResource('pab-applications', PabApplicationController::class)->only(['index', 'show']);
+Route::apiResource('pab-publications', PabPublicationController::class)->only(['index', 'show']);
 Route::apiResource('faqs', FaqController::class)->only(['index', 'show']);
 Route::apiResource('council-members', CouncilMemberController::class)->only(['index', 'show']);
 Route::apiResource('board-members', BoardMemberController::class)->only(['index', 'show']);
 Route::apiResource('contact-entries', ContactEntryController::class)->only(['index', 'show']);
 Route::apiResource('tickers', TickerController::class)->only(['index', 'show']);
+Route::apiResource('public-calendar-events', PublicCalendarEventController::class);
+Route::apiResource('slia-members', SliaMemberController::class)->only(['index', 'show']);
+Route::post('complaints', [ComplaintController::class, 'store']);
+Route::post('member/login', [SliaMemberController::class, 'login']);
+Route::post('member/register', [SliaMemberController::class, 'register']);
+Route::post('member/reset-password', [SliaMemberController::class, 'resetPassword']);
+Route::post('member/password-otp', [SliaMemberController::class, 'sendPasswordOtp']);
+Route::post('member/password-otp/verify', [SliaMemberController::class, 'verifyPasswordOtp']);
+Route::apiResource('slia-members', SliaMemberController::class)->except(['index', 'show']);
+Route::post('slia-members/import', [SliaMemberController::class, 'import'])->middleware('throttle:10,1');
+Route::get('architects', [SliaMemberController::class, 'getForArchitectFinder']);
 
 Route::middleware('auth:api')->group(function () {
     Route::get('admin/users', [AdminUserController::class, 'index']);
@@ -75,10 +97,13 @@ Route::middleware('auth:api')->group(function () {
     Route::put('bae-settings', [BaeSettingController::class, 'update']);
     Route::put('bom-settings', [BomSettingController::class, 'update']);
     Route::apiResource('bom-items', BomItemController::class)->except(['index', 'show']);
+    Route::put('pab-settings', [PabSettingController::class, 'update']);
+    Route::apiResource('pab-events', PabEventController::class)->except(['index', 'show']);
+    Route::apiResource('pab-applications', PabApplicationController::class)->except(['index', 'show']);
+    Route::apiResource('pab-publications', PabPublicationController::class)->except(['index', 'show']);
     Route::apiResource('faqs', FaqController::class)->except(['index', 'show']);
     Route::apiResource('council-members', CouncilMemberController::class)->except(['index', 'show']);
     Route::apiResource('board-members', BoardMemberController::class)->except(['index', 'show']);
     Route::apiResource('contact-entries', ContactEntryController::class)->except(['index', 'show']);
     Route::apiResource('tickers', TickerController::class)->except(['index', 'show']);
 });
-

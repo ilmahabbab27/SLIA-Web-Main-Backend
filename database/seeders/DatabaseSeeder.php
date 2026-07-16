@@ -6,6 +6,9 @@ use App\Models\BoardMember;
 use App\Models\Board;
 use App\Models\CouncilMember;
 use App\Models\ContactEntry;
+use App\Models\Event;
+use App\Models\HeroImage;
+use App\Models\NewsItem;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -127,6 +130,53 @@ class DatabaseSeeder extends Seeder
             $board->is_active = true;
             $board->sort_order = $boardData['sort_order'];
             $board->save();
+        }
+
+        $heroImages = [
+            [
+                'tag' => 'Featured',
+                'title' => 'Sri Lanka Institute of Architects',
+                'description' => 'Advancing Architecture and the Built Environment',
+                'image' => '/images/hero-1.svg',
+                'link' => '/',
+            ],
+            [
+                'tag' => 'News & Events',
+                'title' => 'Latest Events and Updates',
+                'description' => 'Stay connected with our latest news and upcoming events',
+                'image' => '/images/hero-2.svg',
+                'link' => '/latest-news',
+            ],
+        ];
+
+        foreach ($heroImages as $heroData) {
+            HeroImage::updateOrCreate(
+                ['title' => $heroData['title']],
+                $heroData
+            );
+        }
+
+        $eventImages = [
+            'Annual Conference 2026' => '/images/event-conference.svg',
+            'Design Workshop' => '/images/event-workshop.svg',
+            'Member Networking Event' => '/images/event-networking.svg',
+        ];
+
+        foreach ($eventImages as $title => $image) {
+            Event::where('title', $title)->update(['image' => $image]);
+        }
+
+        $newsImages = [
+            'New Architecture Standards Released' => '/images/news-standards.svg',
+            'Sustainable Architecture Initiative' => '/images/news-sustainable.svg',
+            'Student Scholarship Program Opens' => '/images/news-scholarship.svg',
+            'Online Revit Course for Architects' => '/images/news-standards.svg',
+            'Trainer Practices Registration for 2024' => '/images/news-sustainable.svg',
+            'Call for Entries for Annual Awards 2023/24' => '/images/news-scholarship.svg',
+        ];
+
+        foreach ($newsImages as $title => $image) {
+            NewsItem::where('title', $title)->update(['image' => $image]);
         }
 
         $contactEntries = [

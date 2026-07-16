@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BaeMember;
+use App\Models\SliaMember;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use ZipArchive;
@@ -11,30 +12,39 @@ class BaeMemberController extends Controller
 {
     public function index(Request $request)
     {
-        $query = BaeMember::query();
+        $query = SliaMember::query();
 
         if ($request->filled('member_type')) {
-            $query->where('member_type', $request->query('member_type'));
-        }
+            $memberType = strtolower($request->query('member_type'));
+            $membershipType = match ($memberType) {
+                'student' => 'Student',
+                'graduate' => 'Graduate',
+                'associate' => 'Associate',
+                default => null,
+            };
 
-        if (!$request->user()) {
-            $query->where('is_active', true);
+            if ($membershipType) {
+                $query->where('membership_type', $membershipType);
+            }
         }
 
         if ($request->filled('search')) {
             $search = '%' . $request->query('search') . '%';
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', $search)
+                $q->where('full_name', 'like', $search)
+                    ->orWhere('name_with_initials', 'like', $search)
+                    ->orWhere('yearbook_name', 'like', $search)
+                    ->orWhere('nic_number', 'like', $search)
                     ->orWhere('membership_number', 'like', $search)
-                    ->orWhere('academic_qualifications', 'like', $search)
-                    ->orWhere('email', 'like', $search);
+                    ->orWhere('office_email', 'like', $search)
+                    ->orWhere('home_email', 'like', $search)
+                    ->orWhere('contact_info_1_email', 'like', $search)
+                    ->orWhere('contact_info_2_email', 'like', $search);
             });
         }
 
         return response()->json(
-            $query->orderBy('sort_order')
-                ->orderBy('serial_no')
-                ->orderBy('name')
+            $query->orderBy('full_name')
                 ->get()
         );
     }
@@ -43,12 +53,17 @@ class BaeMemberController extends Controller
     {
         $validated = $this->withReferenceNumber($request->validate($this->rules(true)));
         $member = BaeMember::create($validated);
+        $this->syncToSliaMember($member);
         return response()->json($member, 201);
     }
 
     public function show(BaeMember $baeMember)
     {
-        return response()->json($baeMember);
+        $member = SliaMember::where('membership_number', $baeMember->membership_number)
+            ->orWhere('full_name', $baeMember->name)
+            ->first();
+
+        return response()->json($member ?? $baeMember);
     }
 
     public function update(Request $request, BaeMember $baeMember)
@@ -56,6 +71,7 @@ class BaeMemberController extends Controller
         $validated = $request->validate($this->rules(false));
         $validated = $this->withReferenceNumber($validated, $baeMember);
         $baeMember->update($validated);
+        $this->syncToSliaMember($baeMember->fresh());
         return response()->json($baeMember->fresh());
     }
 
@@ -82,13 +98,14 @@ class BaeMemberController extends Controller
 
         $imported = 0;
         foreach ($rows as $row) {
-            BaeMember::updateOrCreate(
+            $member = BaeMember::updateOrCreate(
                 [
                     'member_type' => $row['member_type'],
                     'membership_number' => $row['membership_number'],
                 ],
                 $row
             );
+            $this->syncToSliaMember($member);
             $imported++;
         }
 
@@ -117,6 +134,7 @@ class BaeMemberController extends Controller
             }
 
             $member->update($data);
+            $this->syncToSliaMember($member->fresh());
             $updated++;
         });
 
@@ -134,6 +152,12 @@ class BaeMemberController extends Controller
             'member_type' => [$required, 'string', 'in:student,graduate,associate'],
             'serial_no' => ['nullable', 'integer', 'min:0'],
             'name' => [$required, 'string', 'max:255'],
+            'name_with_initials' => ['nullable', 'string', 'max:255'],
+            'gender' => ['nullable', 'string', 'in:male,female,other,not_specified'],
+            'picture' => ['nullable', 'string', 'max:500000'],
+            'nic' => ['nullable', 'string', 'max:50'],
+            'nationality' => ['nullable', 'string', 'max:100'],
+            'date_of_birth' => ['nullable', 'date'],
             'academic_qualifications' => ['nullable', 'string', 'max:255'],
             'membership_year' => ['nullable', 'string', 'max:20'],
             'membership_number' => [
@@ -151,6 +175,12 @@ class BaeMemberController extends Controller
             'associate_membership_number' => ['nullable', 'string', 'max:80'],
             'associate_membership_year' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string'],
+            'office_address' => ['nullable', 'string'],
+            'office_phone' => ['nullable', 'string', 'max:80'],
+            'office_email' => ['nullable', 'string', 'max:255'],
+            'residence_address' => ['nullable', 'string'],
+            'residence_phone' => ['nullable', 'string', 'max:80'],
+            'residence_email' => ['nullable', 'string', 'max:255'],
             'contact_no' => ['nullable', 'string', 'max:80'],
             'email' => ['nullable', 'string', 'max:255'],
             'remarks' => ['nullable', 'string'],
@@ -161,6 +191,12 @@ class BaeMemberController extends Controller
 
     private function readWorkbook($path, $onlyType = null)
     {
+        if (!class_exists(ZipArchive::class)) {
+            abort(response()->json([
+                'message' => 'Excel import requires the PHP zip extension. Enable extension=zip in php.ini and restart the Laravel server.',
+            ], 422));
+        }
+
         $zip = new ZipArchive();
         if ($zip->open($path) !== true) {
             abort(response()->json(['message' => 'Could not open Excel workbook.'], 422));
@@ -369,5 +405,60 @@ class BaeMemberController extends Controller
         }
 
         return $data;
+    }
+
+    private function syncToSliaMember(BaeMember $member): void
+    {
+        if (!$member || !in_array($member->member_type, ['student', 'graduate', 'associate'], true)) {
+            return;
+        }
+
+        $sliaData = [
+            'full_name' => $member->name,
+            'name_with_initials' => $member->name_with_initials,
+            'yearbook_name' => $member->name,
+            'nic_number' => $member->nic,
+            'gender' => $this->normalizeGender($member->gender),
+            'date_of_birth' => $member->date_of_birth,
+            'photo' => $member->picture,
+            'membership_type' => ucfirst($member->member_type),
+            'membership_number' => $member->membership_number,
+            'membership_year' => $member->membership_year,
+            'academic_qualifications' => $member->academic_qualifications,
+            'professional_qualifications' => null,
+            'practice_name' => null,
+            'practice_description' => null,
+            'practice_type' => null,
+            'office_address' => $member->office_address,
+            'office_phone' => $member->office_phone,
+            'office_email' => $member->office_email,
+            'home_address' => $member->residence_address,
+            'home_phone' => $member->residence_phone,
+            'home_email' => $member->residence_email,
+            'contact_info_1_address' => $member->address,
+            'contact_info_1_phone' => $member->contact_no,
+            'contact_info_1_email' => $member->email,
+        ];
+
+        SliaMember::updateOrCreate(
+            [
+                'membership_number' => $member->membership_number,
+            ],
+            array_filter($sliaData, static fn ($value) => $value !== null && $value !== '')
+        );
+    }
+
+    private function normalizeGender(?string $gender): ?string
+    {
+        if (!$gender) {
+            return null;
+        }
+
+        return match (strtolower($gender)) {
+            'male' => 'Male',
+            'female' => 'Female',
+            'other' => 'Other',
+            default => null,
+        };
     }
 }

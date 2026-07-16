@@ -26,7 +26,7 @@ class BoardController extends Controller
     {
         $validated = $request->validate([
             'description' => 'nullable|string',
-            'icon' => 'nullable|string',
+            'icon' => 'nullable|string|max:500000',
         ]);
 
         $board->update($validated);
