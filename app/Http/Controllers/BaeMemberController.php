@@ -189,7 +189,7 @@ class BaeMemberController extends Controller
         ];
     }
 
-    private function readWorkbook($path, $onlyType = null)
+    public function readWorkbook($path, $onlyType = null)
     {
         if (!class_exists(ZipArchive::class)) {
             abort(response()->json([
@@ -407,7 +407,7 @@ class BaeMemberController extends Controller
         return $data;
     }
 
-    private function syncToSliaMember(BaeMember $member): void
+    public function syncToSliaMember(BaeMember $member): void
     {
         if (!$member || !in_array($member->member_type, ['student', 'graduate', 'associate'], true)) {
             return;

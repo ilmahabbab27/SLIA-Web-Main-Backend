@@ -68,7 +68,8 @@ Route::apiResource('public-calendar-events', PublicCalendarEventController::clas
 Route::apiResource('slia-members', SliaMemberController::class)->only(['index', 'show']);
 Route::post('complaints', [ComplaintController::class, 'store']);
 Route::post('member/login', [SliaMemberController::class, 'login']);
-Route::post('member/register', [SliaMemberController::class, 'register']);
+Route::post('member/registration-otp', [SliaMemberController::class, 'sendRegistrationOtp']);
+Route::post('member/registration-otp/verify', [SliaMemberController::class, 'verifyRegistrationOtp']);
 Route::post('member/reset-password', [SliaMemberController::class, 'resetPassword']);
 Route::post('member/password-otp', [SliaMemberController::class, 'sendPasswordOtp']);
 Route::post('member/password-otp/verify', [SliaMemberController::class, 'verifyPasswordOtp']);
@@ -105,5 +106,8 @@ Route::middleware('auth:api')->group(function () {
     Route::apiResource('council-members', CouncilMemberController::class)->except(['index', 'show']);
     Route::apiResource('board-members', BoardMemberController::class)->except(['index', 'show']);
     Route::apiResource('contact-entries', ContactEntryController::class)->except(['index', 'show']);
+    Route::get('complaints', [ComplaintController::class, 'index']);
+    Route::patch('complaints/{complaint}', [ComplaintController::class, 'update']);
+    Route::get('complaints/{complaint}/download', [ComplaintController::class, 'download']);
     Route::apiResource('tickers', TickerController::class)->except(['index', 'show']);
 });

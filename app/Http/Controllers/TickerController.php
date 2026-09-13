@@ -43,9 +43,18 @@ class TickerController extends Controller
         return response()->json($tickerItem->fresh());
     }
 
-    public function destroy(TickerItem $tickerItem)
+    public function destroy($ticker)
     {
-        $tickerItem->delete();
+        $deleted = TickerItem::query()
+            ->whereKey($ticker)
+            ->delete();
+
+        if ($deleted === 0) {
+            return response()->json([
+                'message' => 'Ticker item could not be deleted.',
+            ], 404);
+        }
+
         return response()->json(null, 204);
     }
 }

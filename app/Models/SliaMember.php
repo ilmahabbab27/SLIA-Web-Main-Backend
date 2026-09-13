@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class SliaMember extends Model
 {
-    protected $table = 'slia_members';
+    protected $table = 'slia_member_directory';
 
     protected $fillable = [
         'full_name',
@@ -41,6 +41,7 @@ class SliaMember extends Model
         'home_phone',
         'home_fax',
         'home_email',
+        'slia_contact_email',
         'contact_info_1_address',
         'contact_info_1_phone',
         'contact_info_1_email',
@@ -52,15 +53,16 @@ class SliaMember extends Model
         'other_awards',
         'username',
         'password',
+        'source_data',
     ];
 
     protected $casts = [
-        'date_of_birth' => 'date',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
 
     protected $hidden = [
         'password',
+        'source_data',
     ];
 }

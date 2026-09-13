@@ -27,14 +27,17 @@ class SliaMemberController extends Controller
             'password' => 'required|string',
         ]);
 
-        $identifier = $validated['membership_number'] ?? $validated['username'];
+        $identifier = trim($validated['membership_number'] ?? $validated['username']);
+        $normalizedIdentifier = mb_strtolower($identifier);
         $member = SliaMember::query()
-            ->where('membership_number', $identifier)
-            ->orWhere('username', $identifier)
+            ->where(function ($query) use ($normalizedIdentifier) {
+                $query->whereRaw('LOWER(TRIM(membership_number)) = ?', [$normalizedIdentifier])
+                    ->orWhereRaw('LOWER(TRIM(username)) = ?', [$normalizedIdentifier]);
+            })
             ->first();
 
         if (!$member || empty($member->password) || !Hash::check($validated['password'], $member->password)) {
-            return response()->json(['message' => 'Invalid membership number or password.'], 422);
+            return response()->json(['message' => 'Invalid username or membership number, or password.'], 422);
         }
 
         if (!in_array($member->membership_type, self::PORTAL_ALLOWED_TYPES, true)) {
@@ -74,7 +77,7 @@ class SliaMemberController extends Controller
         }
 
         $member->username = $validated['username'] ?? $validated['membership_number'];
-        $member->email = $validated['email'];
+        $member->slia_contact_email = $validated['email'];
         $member->password = Hash::make($validated['password']);
         $member->save();
 
@@ -83,7 +86,7 @@ class SliaMemberController extends Controller
             $member->home_email,
             $member->contact_info_1_email,
             $member->contact_info_2_email,
-            $member->email,
+            $member->slia_contact_email,
         ])->first(fn ($value) => !empty($value));
 
         if ($primaryEmail) {
@@ -91,7 +94,7 @@ class SliaMemberController extends Controller
                 "Your SLIA portal account has been created successfully.\n\n"
                 . "Membership Number: {$member->membership_number}\n"
                 . "Username: {$member->username}\n\n"
-                . "Email: {$member->email}\n\n"
+                . "SLIA Contact Email: {$member->slia_contact_email}\n\n"
                 . "Please keep your password private.",
                 function ($message) use ($primaryEmail, $member) {
                     $message->to($primaryEmail)
@@ -102,6 +105,94 @@ class SliaMemberController extends Controller
                 }
             );
         }
+
+        return response()->json([
+            'message' => 'Registration successful',
+            'data' => $this->sanitizeMember($member),
+        ], 201);
+    }
+
+    public function sendRegistrationOtp(Request $request)
+    {
+        $validated = $request->validate([
+            'membership_number' => 'required|string',
+            'email' => 'required|email',
+        ]);
+
+        $membershipNumber = trim($validated['membership_number']);
+        $email = trim($validated['email']);
+        $member = SliaMember::query()
+            ->whereRaw('LOWER(TRIM(membership_number)) = ?', [mb_strtolower($membershipNumber)])
+            ->first();
+
+        if (!$member) {
+            return response()->json(['message' => 'No member record found for that membership number.'], 404);
+        }
+
+        if (!in_array($member->membership_type, self::PORTAL_ALLOWED_TYPES, true)) {
+            return response()->json(['message' => 'Only Associate members and above can use the portal.'], 403);
+        }
+
+        if (!empty($member->password)) {
+            return response()->json(['message' => 'An account already exists. Please use Sign In or Forgot Password.'], 422);
+        }
+
+        $otp = (string) random_int(100000, 999999);
+        Cache::put($this->registrationOtpCacheKey($member), [
+            'otp' => Hash::make($otp),
+            'email' => $email,
+        ], now()->addMinutes(self::PASSWORD_OTP_TTL_MINUTES));
+
+        Mail::raw(
+            "Your SLIA portal registration code is: {$otp}\n\nThis code expires in " . self::PASSWORD_OTP_TTL_MINUTES . " minutes.",
+            function ($message) use ($email, $member) {
+                $message->to($email)
+                    ->subject('SLIA Portal Registration Code')
+                    ->from(config('mail.from.address'), config('mail.from.name'))
+                    ->replyTo($member->office_email ?: config('mail.from.address'));
+            }
+        );
+
+        return response()->json(['message' => 'Registration code sent successfully.']);
+    }
+
+    public function verifyRegistrationOtp(Request $request)
+    {
+        $validated = $request->validate([
+            'membership_number' => 'required|string',
+            'email' => 'required|email',
+            'otp' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $membershipNumber = trim($validated['membership_number']);
+        $email = trim($validated['email']);
+        $member = SliaMember::query()
+            ->whereRaw('LOWER(TRIM(membership_number)) = ?', [mb_strtolower($membershipNumber)])
+            ->first();
+
+        if (!$member) {
+            return response()->json(['message' => 'No member record found for that membership number.'], 404);
+        }
+
+        if (!in_array($member->membership_type, self::PORTAL_ALLOWED_TYPES, true)) {
+            return response()->json(['message' => 'Only Associate members and above can use the portal.'], 403);
+        }
+
+        if (!empty($member->password)) {
+            return response()->json(['message' => 'An account already exists. Please use Sign In or Forgot Password.'], 422);
+        }
+
+        $payload = Cache::get($this->registrationOtpCacheKey($member));
+        if (!$payload || mb_strtolower($payload['email'] ?? '') !== mb_strtolower($email) || !Hash::check($validated['otp'], $payload['otp'] ?? '')) {
+            return response()->json(['message' => 'Invalid or expired registration code.'], 422);
+        }
+
+        $member->username = $member->username ?: $member->membership_number;
+        $member->slia_contact_email = $email;
+        $member->password = Hash::make($validated['password']);
+        $member->save();
+        Cache::forget($this->registrationOtpCacheKey($member));
 
         return response()->json([
             'message' => 'Registration successful',
@@ -146,9 +237,14 @@ class SliaMemberController extends Controller
             'email' => 'required|email',
         ]);
 
+        $identifier = trim($validated['membership_number']);
+        $email = trim($validated['email']);
         $member = SliaMember::query()
-            ->where('membership_number', $validated['membership_number'])
-            ->orWhere('username', $validated['membership_number'])
+            ->where(function ($query) use ($identifier) {
+                $normalizedIdentifier = mb_strtolower($identifier);
+                $query->whereRaw('LOWER(TRIM(membership_number)) = ?', [$normalizedIdentifier])
+                    ->orWhereRaw('LOWER(TRIM(username)) = ?', [$normalizedIdentifier]);
+            })
             ->first();
 
         if (!$member) {
@@ -164,23 +260,24 @@ class SliaMemberController extends Controller
             $member->home_email,
             $member->contact_info_1_email,
             $member->contact_info_2_email,
-            $member->email,
+            $member->slia_contact_email,
         ]);
 
-        if (!in_array($validated['email'], $knownEmails, true)) {
+        $emailMatches = collect($knownEmails)->contains(fn ($knownEmail) => mb_strtolower(trim($knownEmail)) === mb_strtolower($email));
+        if (!$emailMatches) {
             return response()->json(['message' => 'The email does not match our records.'], 422);
         }
 
         $otp = (string) random_int(100000, 999999);
         Cache::put($this->passwordOtpCacheKey($member), [
             'otp' => Hash::make($otp),
-            'email' => $validated['email'],
+            'email' => mb_strtolower($email),
         ], now()->addMinutes(self::PASSWORD_OTP_TTL_MINUTES));
 
         Mail::raw(
             "Your SLIA password reset OTP is: {$otp}\n\nThis code expires in " . self::PASSWORD_OTP_TTL_MINUTES . " minutes.",
-            function ($message) use ($validated, $member) {
-                $message->to($validated['email'])
+            function ($message) use ($email, $member) {
+                $message->to($email)
                     ->subject('SLIA Password Reset OTP')
                     ->from(config('mail.from.address'), config('mail.from.name'))
                     ->replyTo($member->office_email ?: config('mail.from.address'));
@@ -204,9 +301,14 @@ class SliaMemberController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
+        $identifier = trim($validated['membership_number']);
+        $email = trim($validated['email']);
         $member = SliaMember::query()
-            ->where('membership_number', $validated['membership_number'])
-            ->orWhere('username', $validated['membership_number'])
+            ->where(function ($query) use ($identifier) {
+                $normalizedIdentifier = mb_strtolower($identifier);
+                $query->whereRaw('LOWER(TRIM(membership_number)) = ?', [$normalizedIdentifier])
+                    ->orWhereRaw('LOWER(TRIM(username)) = ?', [$normalizedIdentifier]);
+            })
             ->first();
 
         if (!$member) {
@@ -218,7 +320,7 @@ class SliaMemberController extends Controller
         }
 
         $payload = Cache::get($this->passwordOtpCacheKey($member));
-        if (!$payload || ($payload['email'] ?? null) !== $validated['email'] || !Hash::check($validated['otp'], $payload['otp'] ?? '')) {
+        if (!$payload || ($payload['email'] ?? null) !== mb_strtolower($email) || !Hash::check($validated['otp'], $payload['otp'] ?? '')) {
             return response()->json(['message' => 'Invalid or expired OTP.'], 422);
         }
 
@@ -331,51 +433,7 @@ class SliaMemberController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'full_name' => 'required|string',
-            'name_with_initials' => 'nullable|string',
-            'yearbook_name' => 'nullable|string',
-            'nic_number' => 'nullable|unique:slia_members',
-            'gender' => 'nullable|string|in:Male,Female,Other',
-            'date_of_birth' => 'nullable|date',
-            'photo' => 'nullable|string',
-            'membership_type' => 'nullable|string|in:Student,Graduate,Associate,Fellow,Honorary Fellow',
-            'membership_number' => 'nullable|unique:slia_members',
-            'membership_year' => 'nullable|string',
-            'arb_number' => 'nullable|unique:slia_members',
-            'academic_qualifications' => 'nullable|string',
-            'professional_qualifications' => 'nullable|string',
-            'practice_name' => 'nullable|string',
-            'practice_description' => 'nullable|string',
-            'practice_type' => 'nullable|string',
-            'location_district' => 'nullable|string',
-            'location_province' => 'nullable|string',
-            'personal_website' => 'nullable|string',
-            'office_address' => 'nullable|string',
-            'office_district' => 'nullable|string',
-            'office_province' => 'nullable|string',
-            'office_phone' => 'nullable|string',
-            'office_fax' => 'nullable|string',
-            'office_email' => 'nullable|email|unique:slia_members,office_email',
-            'office_website' => 'nullable|string',
-            'home_address' => 'nullable|string',
-            'home_district' => 'nullable|string',
-            'home_province' => 'nullable|string',
-            'home_phone' => 'nullable|string',
-            'home_fax' => 'nullable|string',
-            'home_email' => 'nullable|email|unique:slia_members,home_email',
-            'contact_info_1_address' => 'nullable|string',
-            'contact_info_1_phone' => 'nullable|string',
-            'contact_info_1_email' => 'nullable|email|unique:slia_members,contact_info_1_email',
-            'contact_info_2_address' => 'nullable|string',
-            'contact_info_2_phone' => 'nullable|string',
-            'contact_info_2_email' => 'nullable|email|unique:slia_members,contact_info_2_email',
-            'positions_held' => 'nullable|string',
-            'slia_awards' => 'nullable|string',
-            'other_awards' => 'nullable|string',
-            'username' => 'nullable|string',
-            'password' => 'nullable|string',
-        ]);
+        $validated = $request->validate($this->textMemberRules(true));
 
         if (!empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
@@ -394,51 +452,7 @@ class SliaMemberController extends Controller
             return response()->json(['message' => 'Member not found'], 404);
         }
 
-        $validated = $request->validate([
-            'full_name' => 'sometimes|string',
-            'name_with_initials' => 'sometimes|nullable|string',
-            'yearbook_name' => 'sometimes|nullable|string',
-            'nic_number' => 'sometimes|nullable|unique:slia_members,nic_number,' . $id,
-            'gender' => 'sometimes|nullable|string|in:Male,Female,Other',
-            'date_of_birth' => 'sometimes|nullable|date',
-            'photo' => 'sometimes|nullable|string',
-            'membership_type' => 'sometimes|nullable|string|in:Student,Graduate,Associate,Fellow,Honorary Fellow',
-            'membership_number' => 'sometimes|nullable|unique:slia_members,membership_number,' . $id,
-            'membership_year' => 'sometimes|nullable|string',
-            'arb_number' => 'sometimes|nullable|unique:slia_members,arb_number,' . $id,
-            'academic_qualifications' => 'sometimes|nullable|string',
-            'professional_qualifications' => 'sometimes|nullable|string',
-            'practice_name' => 'sometimes|nullable|string',
-            'practice_description' => 'sometimes|nullable|string',
-            'practice_type' => 'sometimes|nullable|string',
-            'location_district' => 'sometimes|nullable|string',
-            'location_province' => 'sometimes|nullable|string',
-            'personal_website' => 'sometimes|nullable|string',
-            'office_address' => 'sometimes|nullable|string',
-            'office_district' => 'sometimes|nullable|string',
-            'office_province' => 'sometimes|nullable|string',
-            'office_phone' => 'sometimes|nullable|string',
-            'office_fax' => 'sometimes|nullable|string',
-            'office_email' => 'sometimes|nullable|email|unique:slia_members,office_email,' . $id,
-            'office_website' => 'sometimes|nullable|string',
-            'home_address' => 'sometimes|nullable|string',
-            'home_district' => 'sometimes|nullable|string',
-            'home_province' => 'sometimes|nullable|string',
-            'home_phone' => 'sometimes|nullable|string',
-            'home_fax' => 'sometimes|nullable|string',
-            'home_email' => 'sometimes|nullable|email|unique:slia_members,home_email,' . $id,
-            'contact_info_1_address' => 'sometimes|nullable|string',
-            'contact_info_1_phone' => 'sometimes|nullable|string',
-            'contact_info_1_email' => 'sometimes|nullable|email|unique:slia_members,contact_info_1_email,' . $id,
-            'contact_info_2_address' => 'sometimes|nullable|string',
-            'contact_info_2_phone' => 'sometimes|nullable|string',
-            'contact_info_2_email' => 'sometimes|nullable|email|unique:slia_members,contact_info_2_email,' . $id,
-            'positions_held' => 'sometimes|nullable|string',
-            'slia_awards' => 'sometimes|nullable|string',
-            'other_awards' => 'sometimes|nullable|string',
-            'username' => 'sometimes|nullable|string',
-            'password' => 'sometimes|nullable|string',
-        ]);
+        $validated = $request->validate($this->textMemberRules(false));
 
         if (!empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
@@ -488,7 +502,12 @@ class SliaMemberController extends Controller
                 $row['password'] = Hash::make($row['password']);
             }
 
-            if (!empty($row['username'])) {
+            if (!empty($row['membership_number'])) {
+                SliaMember::updateOrCreate(
+                    ['membership_number' => $row['membership_number']],
+                    $row
+                );
+            } elseif (!empty($row['username'])) {
                 SliaMember::updateOrCreate(
                     ['username' => $row['username']],
                     $row
@@ -551,7 +570,7 @@ class SliaMemberController extends Controller
         return $delimiters[$best] > 0 ? $best : ",";
     }
 
-    private function readXlsx(string $path): array
+    public function readXlsx(string $path): array
     {
         if (!class_exists(ZipArchive::class)) {
             abort(response()->json(['message' => 'XLSX import requires the PHP zip extension. Enable extension=zip in php.ini and restart the Laravel server.'], 422));
@@ -575,11 +594,12 @@ class SliaMemberController extends Controller
             abort(response()->json(['message' => 'Could not read Excel worksheet.'], 422));
         }
 
+        $sheetXml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
         $rows = [];
         $headers = [];
-        foreach ($sheetXml->sheetData->row as $index => $row) {
+        foreach ($sheetXml->xpath('//x:row') as $row) {
             $values = $this->xlsxRowValues($row, $sharedStrings);
-            if ($index === 0) {
+            if ((int) $row['r'] === 1) {
                 $headers = array_map(fn ($header) => strtolower(trim((string) $header)), $values);
                 continue;
             }
@@ -600,6 +620,11 @@ class SliaMemberController extends Controller
 
     private function xlsxFirstSheetPath(ZipArchive $zip): ?string
     {
+        // The directory workbook stores its primary member list in sheet1.
+        if ($zip->getFromName('xl/worksheets/sheet1.xml') !== false) {
+            return 'xl/worksheets/sheet1.xml';
+        }
+
         $workbook = simplexml_load_string($zip->getFromName('xl/workbook.xml'));
         $rels = simplexml_load_string($zip->getFromName('xl/_rels/workbook.xml.rels'));
 
@@ -631,13 +656,12 @@ class SliaMemberController extends Controller
             return [];
         }
 
-        foreach ($shared->si as $si) {
+        $shared->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        foreach ($shared->xpath('//x:si') as $si) {
             $parts = [];
-            if (isset($si->t)) {
-                $parts[] = (string) $si->t;
-            }
-            foreach ($si->r as $run) {
-                $parts[] = (string) $run->t;
+            $si->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+            foreach ($si->xpath('./x:t | ./x:r/x:t') as $text) {
+                $parts[] = (string) $text;
             }
             $strings[] = implode('', $parts);
         }
@@ -648,17 +672,25 @@ class SliaMemberController extends Controller
     private function xlsxRowValues($row, array $sharedStrings): array
     {
         $values = [];
-        foreach ($row->c as $cell) {
+        $row->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        foreach ($row->xpath('./x:c') as $cell) {
+            $cell->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
             $ref = (string) $cell['r'];
             $index = $this->xlsxColumnIndex($ref);
-            $value = isset($cell->v) ? (string) $cell->v : '';
+            $valueNode = $cell->xpath('./x:v');
+            $value = $valueNode ? (string) $valueNode[0] : '';
             if ((string) $cell['t'] === 's') {
                 $value = $sharedStrings[(int) $value] ?? '';
             }
             $values[$index] = $value;
         }
         ksort($values);
-        return array_values($values);
+        $maxIndex = $values ? max(array_keys($values)) : -1;
+        $normalized = [];
+        for ($index = 0; $index <= $maxIndex; $index++) {
+            $normalized[$index] = $values[$index] ?? '';
+        }
+        return $normalized;
     }
 
     private function xlsxColumnIndex(string $ref): int
@@ -674,55 +706,85 @@ class SliaMemberController extends Controller
 
     private function normalizeImportRow(array $row): array
     {
+        $value = fn (array $keys) => collect($keys)
+            ->map(fn ($key) => trim((string) ($row[$key] ?? '')))
+            ->first(fn ($item) => $item !== '') ?: null;
+        $source = $row;
+        unset($source['password']);
+        $membershipType = $value(['membership_type', 'mcategory']);
+        $membershipType = match (strtolower((string) $membershipType)) {
+            'student member' => 'Student',
+            'graduate member' => 'Graduate',
+            'associate member' => 'Associate',
+            'fellow member' => 'Fellow',
+            'honorary fellow member' => 'Honorary Fellow',
+            default => $membershipType,
+        };
+
         return [
-            'full_name' => $row['full_name'] ?? $row['name'] ?? null,
-            'name_with_initials' => $row['name_with_initials'] ?? null,
-            'yearbook_name' => $row['yearbook_name'] ?? null,
-            'nic_number' => $row['nic_number'] ?? null,
-            'gender' => $row['gender'] ?? null,
-            'date_of_birth' => $row['date_of_birth'] ?? null,
-            'membership_type' => $row['membership_type'] ?? null,
-            'membership_number' => $row['membership_number'] ?? null,
-            'membership_year' => $row['membership_year'] ?? null,
-            'arb_number' => $row['arb_number'] ?? null,
-            'academic_qualifications' => $row['academic_qualifications'] ?? null,
-            'professional_qualifications' => $row['professional_qualifications'] ?? null,
-            'practice_name' => $row['practice_name'] ?? null,
-            'practice_description' => $row['practice_description'] ?? null,
-            'practice_type' => $row['practice_type'] ?? null,
-            'location_district' => $row['location_district'] ?? null,
-            'location_province' => $row['location_province'] ?? null,
-            'personal_website' => $row['personal_website'] ?? null,
-            'office_address' => $row['office_address'] ?? null,
-            'office_district' => $row['office_district'] ?? null,
-            'office_province' => $row['office_province'] ?? null,
-            'office_phone' => $row['office_phone'] ?? null,
-            'office_fax' => $row['office_fax'] ?? null,
-            'office_email' => $row['office_email'] ?? null,
-            'office_website' => $row['office_website'] ?? null,
-            'home_address' => $row['home_address'] ?? null,
-            'home_district' => $row['home_district'] ?? null,
-            'home_province' => $row['home_province'] ?? null,
-            'home_phone' => $row['home_phone'] ?? null,
-            'home_fax' => $row['home_fax'] ?? null,
-            'home_email' => $row['home_email'] ?? null,
-            'contact_info_1_address' => $row['contact_info_1_address'] ?? null,
-            'contact_info_1_phone' => $row['contact_info_1_phone'] ?? null,
-            'contact_info_1_email' => $row['contact_info_1_email'] ?? null,
-            'contact_info_2_address' => $row['contact_info_2_address'] ?? null,
-            'contact_info_2_phone' => $row['contact_info_2_phone'] ?? null,
-            'contact_info_2_email' => $row['contact_info_2_email'] ?? null,
-            'positions_held' => $row['positions_held'] ?? null,
-            'slia_awards' => $row['slia_awards'] ?? null,
-            'other_awards' => $row['other_awards'] ?? null,
-            'username' => $row['username'] ?? null,
-            'password' => $row['password'] ?? null,
+            'full_name' => $value(['full_name', 'name', 'fname']),
+            'name_with_initials' => $value(['name_with_initials', 'ininame']),
+            'yearbook_name' => $value(['yearbook_name', 'displaynameonyearbook']),
+            'nic_number' => $value(['nic_number', 'nic']),
+            'gender' => $value(['gender']),
+            'date_of_birth' => $value(['date_of_birth', 'dateofbirth']),
+            'membership_type' => $membershipType,
+            'membership_number' => $value(['membership_number', 'memno']),
+            'membership_year' => $value(['membership_year', 'memyear']),
+            'arb_number' => $value(['arb_number', 'arb']),
+            'academic_qualifications' => $value(['academic_qualifications', 'pqaa']),
+            'professional_qualifications' => $value(['professional_qualifications', 'aquaf']),
+            'practice_name' => $value(['practice_name', 'pname']),
+            'practice_description' => $value(['practice_description']),
+            'practice_type' => $value(['practice_type', 'practice']),
+            'location_district' => $value(['location_district', 'district']),
+            'location_province' => $value(['location_province', 'district2']),
+            'personal_website' => $value(['personal_website']),
+            'office_address' => $value(['office_address', 'oadd']),
+            'office_phone' => $value(['office_phone', 'otelone', 'oteltwo', 'otelthree', 'otelfour']),
+            'office_fax' => $value(['office_fax', 'offfax']),
+            'office_email' => $value(['office_email', 'oemail', 'oemailtwo']),
+            'office_website' => $value(['office_website', 'oweb']),
+            'home_address' => $value(['home_address', 'radd']),
+            'home_phone' => $value(['home_phone', 'rtelone', 'rteltwo', 'rtelthree']),
+            'home_fax' => $value(['home_fax', 'refax']),
+            'home_email' => $value(['home_email', 'remail']),
+            'slia_contact_email' => $value(['slia_contact_email']),
+            'contact_info_1_address' => $value(['contact_info_1_address', 'oradd']),
+            'contact_info_1_phone' => $value(['contact_info_1_phone', 'ortel']),
+            'contact_info_1_email' => $value(['contact_info_1_email', 'oremail']),
+            'contact_info_2_address' => $value(['contact_info_2_address', 'postaladdress']),
+            'contact_info_2_email' => $value(['contact_info_2_email', 'postalemailone', 'postemailtwo']),
+            'positions_held' => $value(['positions_held', 'opheld']),
+            'slia_awards' => $value(['slia_awards', 'sliaawards']),
+            'other_awards' => $value(['other_awards', 'aoawards']),
+            'username' => $value(['username']),
+            'password' => $value(['password']),
+            'source_data' => json_encode($source, JSON_UNESCAPED_UNICODE),
         ];
+    }
+
+    private function textMemberRules(bool $creating): array
+    {
+        $rules = array_fill_keys(
+            (new SliaMember())->getFillable(),
+            ['sometimes', 'nullable', 'string', 'max:1000000']
+        );
+        $rules['full_name'] = $creating
+            ? ['required', 'string', 'max:1000000']
+            : ['sometimes', 'string', 'max:1000000'];
+        unset($rules['source_data']);
+        return $rules;
     }
 
     private function passwordOtpCacheKey(SliaMember $member): string
     {
         return 'slia_member_password_otp_' . $member->id;
+    }
+
+    private function registrationOtpCacheKey(SliaMember $member): string
+    {
+        return 'slia_member_registration_otp_' . $member->id;
     }
 
 }
