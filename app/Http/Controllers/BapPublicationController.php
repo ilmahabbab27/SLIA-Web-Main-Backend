@@ -16,11 +16,20 @@ class BapPublicationController extends Controller
             $query->where('category', $request->query('category'));
         }
 
-        return response()->json(
-            $query->orderBy('sort_order')
-                ->orderByDesc('uploaded_at')
-                ->get()
-        );
+        $publications = $query->orderBy('sort_order')
+            ->orderByDesc('uploaded_at')
+            ->get()
+            ->each(function ($publication) {
+                if ($publication->file_src) {
+                    $publication->file_src = str_replace(
+                        ['uploads/bap/', 'uploads/pab/'],
+                        ['public/uploads/pab/', 'public/uploads/pab/'],
+                        $publication->file_src
+                    );
+                }
+            });
+
+        return response()->json($publications);
     }
 
     public function store(Request $request)
@@ -102,7 +111,7 @@ class BapPublicationController extends Controller
         }
 
         $extension = $this->extensionForMime($mime, $originalName);
-        $directory = public_path('uploads/bap');
+        $directory = public_path('uploads/pab');
 
         if (!is_dir($directory)) {
             mkdir($directory, 0755, true);
@@ -111,7 +120,7 @@ class BapPublicationController extends Controller
         $filename = $prefix . '-' . Str::random(24) . '.' . $extension;
         file_put_contents($directory . DIRECTORY_SEPARATOR . $filename, $content);
 
-        return url('uploads/bap/' . $filename);
+        return url('public/uploads/pab/' . $filename);
     }
 
     private function extensionForMime($mime, $originalName = null)

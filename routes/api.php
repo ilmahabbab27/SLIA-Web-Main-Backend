@@ -88,6 +88,8 @@ Route::middleware('auth:api')->group(function () {
     Route::apiResource('award-categories', AwardCategoryController::class)->except(['index', 'show']);
     Route::put('award-settings', [AwardSettingController::class, 'update']);
     Route::apiResource('news-items', NewsItemController::class)->except(['index', 'show']);
+    // Compatibility endpoint for hosts that do not forward DELETE requests correctly.
+    Route::post('news-items/{newsItem}/delete', [NewsItemController::class, 'destroy']);
     Route::apiResource('boards', BoardController::class)->except(['index', 'show']);
     Route::put('bap-settings', [BapSettingController::class, 'update']);
     Route::apiResource('bap-publications', BapPublicationController::class)->except(['index', 'show']);

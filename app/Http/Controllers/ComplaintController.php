@@ -47,7 +47,10 @@ class ComplaintController extends Controller
                 . "Message:\n{$validated['message']}\n",
                 function ($message) use ($validated, $to, $fromAddress, $fromName, $attachment) {
                     $message->to($to)
-                        ->cc('sliageneralsec@gmail.com')
+                        ->cc([
+                            'honysecretary@architects.lk',
+                            'secretariat@architects.lk',
+                        ])
                         ->subject('SLIA Complaint: ' . $validated['subject'])
                         ->from($fromAddress, $fromName)
                         ->replyTo($validated['email'] ?: $fromAddress, $validated['name']);

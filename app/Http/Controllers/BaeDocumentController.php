@@ -108,6 +108,6 @@ class BaeDocumentController extends Controller
         $filename = 'document-' . Str::random(24) . '.' . $extension;
         file_put_contents($directory . DIRECTORY_SEPARATOR . $filename, $content);
 
-        return url('uploads/bae/' . $filename);
+        return url('public/uploads/bae/' . $filename);
     }
 }
