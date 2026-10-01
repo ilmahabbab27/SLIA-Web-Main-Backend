@@ -84,6 +84,7 @@ Route::middleware('auth:api')->group(function () {
     Route::apiResource('hero-images', HeroImageController::class)->except(['index', 'show']);
     Route::apiResource('hero-buttons', HeroButtonController::class)->except(['index', 'show']);
     Route::apiResource('events', EventController::class)->except(['index', 'show']);
+    Route::post('events/{event}/delete', [EventController::class, 'destroy']);
     Route::apiResource('annual-events', AnnualEventController::class)->except(['index', 'show']);
     Route::apiResource('award-categories', AwardCategoryController::class)->except(['index', 'show']);
     Route::put('award-settings', [AwardSettingController::class, 'update']);

@@ -57,7 +57,8 @@ class BaeDocumentController extends Controller
         $required = $creating ? 'required' : 'nullable';
 
         return [
-            'category' => [$required, 'string', 'in:applications,notices,references'],
+            'category' => [$required, 'string', 'in:applications,resources,notices,references'],
+            'application_section' => ['nullable', 'string', 'in:education,professional_affairs,other'],
             'title' => [$required, 'string', 'max:255'],
             'meta' => ['nullable', 'string', 'max:80'],
             'file_name' => ['nullable', 'string', 'max:255'],

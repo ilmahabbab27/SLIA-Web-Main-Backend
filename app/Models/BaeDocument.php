@@ -11,6 +11,7 @@ class BaeDocument extends Model
 
     protected $fillable = [
         'category',
+        'application_section',
         'title',
         'meta',
         'file_name',

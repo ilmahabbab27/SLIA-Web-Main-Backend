@@ -62,9 +62,16 @@ class NewsItemController extends Controller
     }
 
     /** DELETE /api/news-items/{newsItem} */
-    public function destroy(NewsItem $newsItem)
+    public function destroy($newsItem)
     {
-        $newsItem->delete();
+        $deleted = NewsItem::whereKey($newsItem)->delete();
+
+        if ($deleted === 0) {
+            return response()->json([
+                'message' => 'News item not found.',
+            ], 404);
+        }
+
         return response()->json(null, 204);
     }
 }
